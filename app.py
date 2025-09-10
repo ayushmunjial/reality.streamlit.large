@@ -41,7 +41,7 @@ st.write(f'<link type="text/css" rel="stylesheet" href="https://model.earth/loca
 
 features = st.sidebar.selectbox("Features", ("Local Industries", "Local Places", "Local Products", "Job Descriptions", "Brain Voxels"), index=3)
 targets = st.sidebar.selectbox("Target", ("Honey Bees", "Job Growth", "Wage Growth", "High Wages", "Real Job Listings", "Tree Canopy", "Eye Blinks"), index=4)
-models = st.sidebar.selectbox("Model", ("Location Forest", "Random Forest", "Random Bits Forest", "Logistic Regression ", "Support Vector Machines", "XGBoost Gradient Boosted Trees", "MLP Neural Network"), index=3)
+models = st.sidebar.selectbox("Model", ("Random Forest", "Random Bits Forest", "Logistic Regression ", "Support Vector Machines", "XGBoost Gradient Boosted Trees", "MLP Neural Network"), index=2)
 page = st.sidebar.selectbox("Explore or Predict", ("Understanding the Data","Compare Models","Predict"))
 
 if page == "Understanding the Data":
