@@ -2,6 +2,7 @@ from utils.libraries import st
 from utils.explore_page import show_explore_page
 from utils.model_page import compare_model_page
 from utils.predict_page import show_predict_page
+from utils.functions import get_approved_choices, run_notebook_from_github, display_notebook_results
 
 # If working, place your name here, and add other TO DOs for others
 # IVY - Add Randoms Bits Forest
@@ -41,13 +42,55 @@ st.write(f'<link type="text/css" rel="stylesheet" href="https://model.earth/loca
 
 features = st.sidebar.selectbox("Features", ("Local Industries", "Local Places", "Local Products", "Job Descriptions", "Brain Voxels"), index=3)
 targets = st.sidebar.selectbox("Target", ("Honey Bees", "Job Growth", "Wage Growth", "High Wages", "Real Job Listings", "Tree Canopy", "Eye Blinks"), index=4)
-models = st.sidebar.selectbox("Model", ("Location Forest", "Random Forest", "Random Bits Forest", "Logistic Regression ", "Support Vector Machines", "XGBoost Gradient Boosted Trees", "MLP Neural Network"), index=3)
-page = st.sidebar.selectbox("Explore or Predict", ("Understanding the Data","Compare Models","Predict"))
 
-if page == "Understanding the Data":
-    show_explore_page()
-elif page == "Compare Models":
-    compare_model_page()
-elif page == "Predict":
-    show_predict_page()
+MODEL_CODE = {
+    "Logistic Regression (lr)": "lr",
+    "Random Forest Classifier (rfc)": "rfc",
+    "Random Bits Forest (rbf)": "rbf",
+    "Support Vector Machines (svm) - Runs Slow": "svm",
+    "Neural Network Multi-Layer Perceptron (mlp)": "mlp",
+    "XGBoost (xgboost)": "xgboost",
+}
+
+models = st.sidebar.selectbox("Model", list(MODEL_CODE.keys()), index=0)
+selected_code = MODEL_CODE[models]
+
+
+
+with st.spinner(f"Executing {models}..."):
+    parameters = {
+        "model_type": selected_code,  # 👈 this is key
+        "test_size": 0.3,
+        "max_features": 500,
+        "random_state": 42,
+        "oversample": True
+    }
+    success, output_path, error = run_notebook_from_github("Run-Models-bkup.ipynb", parameters)
+
+
+# Add execution logic that works with existing "Run" buttons in pages
+if 'execute_selected_model' not in st.session_state:
+    st.session_state.execute_selected_model = False
+
+# This will be triggered by existing "Run" buttons in the model pages
+if st.session_state.get('execute_selected_model', False):
+    st.session_state.execute_selected_model = False  # Reset flag
+    
+    # Execute the selected model
+    parameters = {
+        "test_size": 0.3,
+        "max_features": 500,
+        "random_state": 42,
+        "oversample": True
+    }
+    
+    with st.spinner(f"Executing {models}..."):
+        parameters["model_type"] = selected_code  # 👈 pass correct short code
+        success, output_path, error = run_notebook_from_github("Run-Models-bkup.ipynb", parameters)
+        
+        if success:
+            st.success(f"✅ {models} executed successfully!")
+            display_notebook_results(output_path)
+        else:
+            st.error(f"❌ Execution failed: {error}")
 

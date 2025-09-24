@@ -5,6 +5,9 @@ import base64
 import time
 import json
 import random
+import papermill as pm
+import tempfile
+import os
 
 # Creating a Dataframe with word-vectors in TF-IDF form and Target values
 
@@ -208,3 +211,136 @@ def save_report_to_github(image_content, filename, repo_name, path_in_repo, comm
     else:
         st.error(f"Failed to upload image: {response.content}") 
 '''
+
+# GitHub Notebook Integration Functions
+
+# Approved notebooks for RealityStream
+APPROVED_NOTEBOOK_CHOICES = [
+    "Run-Models-bkup.ipynb"
+]
+
+def get_approved_choices():
+    """
+    Return the approved RealityStream notebook choices.
+    """
+    return APPROVED_NOTEBOOK_CHOICES
+
+
+def run_notebook_from_github(
+    notebook_name,
+    parameters=None,
+    repo_owner="ModelEarth",
+    repo_name="realitystream",
+    path="models"
+):
+    """
+    Download and execute a Jupyter notebook from GitHub using papermill.
+    """
+
+    # Security check
+    if notebook_name not in APPROVED_NOTEBOOK_CHOICES:
+        error_msg = f"Notebook '{notebook_name}' not in approved list"
+        st.error(error_msg)
+        return False, None, error_msg
+
+    temp_input_path, temp_output_path = None, None
+
+    try:
+        # Download notebook content from GitHub
+        st.info(f"Downloading notebook '{notebook_name}' from GitHub...")
+
+        url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/contents/{path}/{notebook_name}"
+        headers = {"Accept": "application/vnd.github.v3+json"}
+        if "GITHUB_TOKEN" in st.secrets:
+            headers["Authorization"] = f"token {st.secrets['GITHUB_TOKEN']}"
+
+        response = requests.get(url, headers=headers, timeout=30)
+        if response.status_code != 200:
+            error_msg = f"Failed to download notebook: HTTP {response.status_code}"
+            st.error(error_msg)
+            return False, None, error_msg
+
+        file_data = response.json()
+
+        if file_data.get("encoding") == "base64":
+            notebook_content = base64.b64decode(file_data["content"]).decode("utf-8")
+        else:
+            error_msg = "Notebook content encoding not supported"
+            st.error(error_msg)
+            return False, None, error_msg
+
+        # Create temporary files
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".ipynb", delete=False) as temp_input:
+            temp_input.write(notebook_content)
+            temp_input_path = temp_input.name
+
+        temp_output_path = temp_input_path.replace(".ipynb", "_output.ipynb")
+
+        st.info("Executing notebook with papermill...")
+
+        # Execute notebook with papermill
+        pm.execute_notebook(
+            input_path=temp_input_path,
+            output_path=temp_output_path,
+            parameters=parameters or {},
+            progress_bar=False,
+            log_output=True
+        )
+
+        st.success(f"Notebook '{notebook_name}' executed successfully!")
+        return True, temp_output_path, None
+
+    except Exception as e:
+        error_msg = f"Unexpected error running notebook: {str(e)}"
+        st.error(error_msg)
+        return False, temp_output_path, error_msg
+
+    finally:
+        if temp_input_path and os.path.exists(temp_input_path):
+            try:
+                os.unlink(temp_input_path)
+            except Exception as e:
+                st.warning(f"Could not clean up temporary file: {str(e)}")
+
+
+def display_notebook_results(output_path):
+    """
+    Display notebook execution results in Streamlit.
+    """
+    if not output_path or not os.path.exists(output_path):
+        st.warning("No output notebook to display")
+        return
+
+    try:
+        with open(output_path, "r") as f:
+            notebook_data = json.load(f)
+
+        st.subheader("Notebook Execution Results")
+
+        for i, cell in enumerate(notebook_data.get("cells", [])):
+            if cell.get("cell_type") == "code" and cell.get("outputs"):
+                st.write(f"**Cell {i + 1}:**")
+
+                if cell.get("source"):
+                    code = "".join(cell["source"])
+                    st.code(code, language="python")
+
+                for output in cell["outputs"]:
+                    if output.get("output_type") == "stream":
+                        st.text("".join(output.get("text", [])))
+                    elif output.get("output_type") == "display_data":
+                        if "text/plain" in output.get("data", {}):
+                            st.text("".join(output["data"]["text/plain"]))
+                    elif output.get("output_type") == "execute_result":
+                        if "text/plain" in output.get("data", {}):
+                            st.text("".join(output["data"]["text/plain"]))
+
+                st.divider()
+
+        try:
+            os.unlink(output_path)
+        except Exception as e:
+            st.warning(f"Could not clean up output file: {str(e)}")
+
+    except Exception as e:
+        st.error(f"Error displaying notebook results: {str(e)}")
