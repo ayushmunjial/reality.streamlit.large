@@ -4,6 +4,18 @@ from utils.model_page import compare_model_page
 from utils.predict_page import show_predict_page
 from utils.functions import get_approved_choices, run_notebook_from_github, display_notebook_results
 
+import pandas as pd
+
+@st.cache_data(show_spinner=False)
+def load_job_dataset_from_github(url: str):
+    try:
+        df = pd.read_csv(url)
+        st.success("Dataset loaded successfully from GitHub.")
+        return df
+    except Exception as e:
+        st.error(f"Failed to load dataset: {e}")
+        return pd.DataFrame()
+
 # If working, place your name here, and add other TO DOs for others
 # IVY - Add Randoms Bits Forest
 
@@ -42,6 +54,16 @@ st.write(f'<link type="text/css" rel="stylesheet" href="https://model.earth/loca
 
 features = st.sidebar.selectbox("Features", ("Local Industries", "Local Places", "Local Products", "Job Descriptions", "Brain Voxels"), index=3)
 targets = st.sidebar.selectbox("Target", ("Honey Bees", "Job Growth", "Wage Growth", "High Wages", "Real Job Listings", "Tree Canopy", "Eye Blinks"), index=4)
+
+GITHUB_RAW_URL = "https://raw.githubusercontent.com/ayushmunjial/reality.streamlit.large/main/input/jobs/fake_job_postings.csv"
+
+if targets == "Real Job Listings":
+    df_jobs = load_job_dataset_from_github(GITHUB_RAW_URL)
+    if not df_jobs.empty:
+        st.subheader("Preview of 'Fake vs Real Job Listings' dataset")
+        # st.dataframe(df_jobs.head())
+        st.dataframe(df_jobs)
+        st.write("Total rows:", len(df_jobs))
 
 MODEL_CODE = {
     "Logistic Regression (lr)": "lr",
